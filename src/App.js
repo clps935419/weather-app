@@ -4,6 +4,7 @@ import { ReactComponent as RainIcon } from './images/rain.svg';
 import React, { useState } from 'react';
 import { ReactComponent as RefreshIcon } from './images/refresh.svg';
 import styled, { ThemeProvider } from 'styled-components';
+import dayjs from "dayjs";
 
 const theme = {
     light: {
@@ -120,28 +121,69 @@ const Refresh = styled.div`
     }
 `;
 
+const AUTHORIZATION_KEY = `CWB-BFADAE5F-15DA-4E82-90EC-2B2AEB824B1A`;
+const LOCATION = '466920';
 const App = () => {
     const [currentTheme, setCurrentTheme] = useState('dark');
+    const [currentWeather, setCurrentWeather] = useState({
+      locationName:"台北市",
+      description:"多雲",
+      windSpeed:1.1,
+      temperature:26,
+      rainPossibility:60,
+      observationTime:"2022-04-05 22:11:00"
+    });
+    const handleClick = ()=>{
+      fetch(
+          `https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0003-001?Authorization=${AUTHORIZATION_KEY}&format=JSON&stationId=${LOCATION}`
+      ).then((res)=>res.json()).then((data)=>{
+        const locationData = data.records.location[0];
+        const weatherEle = locationData.weatherElement.reduce((prev,curr)=>{
+          console.log('pre',prev,curr)
+          if (['WDSD', 'TEMP'].includes(curr.elementName)) {
+            prev[curr.elementName] = curr.elementValue;
+          }
+          return prev;
+        },{})
+        console.log('data', weatherEle);
+        setCurrentWeather({
+            ...currentWeather,
+            locationName: locationData.locationName,
+            description: '多雲',
+            windSpeed: weatherEle.WDSD,
+            temperature: weatherEle.TEMP,
+            rainPossibility: 60,
+            observationTime: locationData.time.obsTime,
+        });
+      })
+    }
     return (
         <ThemeProvider theme={theme[currentTheme]}>
             <Container>
                 <WeatherCard>
-                    <Location theme="dark">台北市</Location>
-                    <Description>多雲時晴</Description>
+                    <Location theme="dark">
+                        {currentWeather.locationName}
+                    </Location>
+                    <Description>{currentWeather.description}</Description>
                     <CurrentWeather>
                         <Temperature>
-                            23 <Celsius>°C</Celsius>
+                            {Math.round(currentWeather.temperature)}
+                            <Celsius>°C</Celsius>
                         </Temperature>
                         <DayCloudy />
                     </CurrentWeather>
                     <AirFlow>
-                        <AirFlowIcon /> 23 m/h
+                        <AirFlowIcon /> {currentWeather.windSpeed} m/h
                     </AirFlow>
                     <Rain>
-                        <RainIcon /> 48%
+                        <RainIcon /> {currentWeather.rainPossibility}%
                     </Rain>
-                    <Refresh>
-                        最後觀測時間：上午 12:03 <RefreshIcon />
+                    <Refresh onClick={handleClick}>
+                        {new Intl.DateTimeFormat('zh-TW', {
+                            hour: 'numeric',
+                            minute: 'numeric',
+                        }).format(dayjs(currentWeather.observationTime))}
+                        <RefreshIcon />
                     </Refresh>
                 </WeatherCard>
             </Container>
