@@ -1,11 +1,13 @@
 import { ReactComponent as AirFlowIcon } from './images/airFlow.svg';
 import { ReactComponent as DayCloudyIcon } from './images/day-cloudy.svg';
 import { ReactComponent as RainIcon } from './images/rain.svg';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { ReactComponent as RefreshIcon } from './images/refresh.svg';
+import { ReactComponent as LoadingIcon } from './images/loading.svg';
 import styled, { ThemeProvider } from 'styled-components';
-import dayjs from "dayjs";
-
+import dayjs from 'dayjs';
+import WeatherIcon from '@/components/WeatherIcon';
+import {getMoment} from "@/utility/helper";
 const theme = {
     light: {
         backgroundColor: '#ededed',
@@ -106,6 +108,18 @@ const DayCloudy = styled(DayCloudyIcon)`
 `;
 
 const Refresh = styled.div`
+    @keyframes rotate {
+        from {
+            transform: rotate(360deg);
+        }
+        to {
+            transform: rotate(0deg);
+        }
+    }
+    svg {
+        animation: rotate infinite 1.5s linear;
+        animation-duration: ${({ isLoading }) => (isLoading ? '1.5s' : '0s')};
+    }
     position: absolute;
     right: 15px;
     bottom: 15px;
@@ -123,67 +137,159 @@ const Refresh = styled.div`
 
 const AUTHORIZATION_KEY = `CWB-BFADAE5F-15DA-4E82-90EC-2B2AEB824B1A`;
 const LOCATION = '466920';
+const LOCATION_FORECAST_NAME = '臺北市';
+
+function fetchCurrentWeatherData() {
+    return fetch(
+        `https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0003-001?Authorization=${AUTHORIZATION_KEY}&format=JSON&stationId=${LOCATION}`
+    )
+        .then((res) => res.json())
+        .then((data) => {
+            const locationData = data.records.location[0];
+            const weatherEle = locationData.weatherElement.reduce(
+                (prev, curr) => {
+                    if (['WDSD', 'TEMP'].includes(curr.elementName)) {
+                        prev[curr.elementName] = curr.elementValue;
+                    }
+                    return prev;
+                },
+                {}
+            );
+            return {
+                locationName: locationData.locationName,
+                description: '多雲',
+                windSpeed: weatherEle.WDSD,
+                temperature: weatherEle.TEMP,
+                rainPossibility: 60,
+                observationTime: locationData.time.obsTime,
+                isLoading: false,
+            };
+        });
+}
+
+function fetchForecastWeatherDate() {
+    return fetch(
+        `https://opendata.cwb.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${AUTHORIZATION_KEY}&format=JSON&locationName=${LOCATION_FORECAST_NAME}`
+    )
+        .then((res) => res.json())
+        .then((data) => {
+            const locationData = data.records.location[0];
+            console.log(
+                '🚀 ~ file: App.js ~ line 211 ~ .then ~ locationData',
+                locationData
+            );
+            const weatherEle = locationData.weatherElement.reduce(
+                (need, curr) => {
+                    console.log('pre', need, curr);
+                    if (['Wx', 'PoP', 'CI'].includes(curr.elementName)) {
+                        need[curr.elementName] = curr.time[0].parameter;
+                    }
+                    return need;
+                },
+                {}
+            );
+            console.log('data', weatherEle);
+            return {
+                description: weatherEle.Wx.parameterName,
+                weatherCode: weatherEle.Wx.parameterValue,
+                rainPossibility: weatherEle.PoP.parameterName,
+                comfortability: weatherEle.CI.parameterName,
+            };
+        });
+}
+
 const App = () => {
     const [currentTheme, setCurrentTheme] = useState('dark');
-    const [currentWeather, setCurrentWeather] = useState({
-      locationName:"台北市",
-      description:"多雲",
-      windSpeed:1.1,
-      temperature:26,
-      rainPossibility:60,
-      observationTime:"2022-04-05 22:11:00"
+    const [weatherData, setWeatherData] = useState({
+        locationName: '',
+        description: '',
+        windSpeed: 0,
+        temperature: 0,
+        rainPossibility: 0,
+        observationTime: new Date(),
+        isLoading: true,
+        comfortability: '',
+        weatherCode: 0,
     });
-    const handleClick = ()=>{
-      fetch(
-          `https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0003-001?Authorization=${AUTHORIZATION_KEY}&format=JSON&stationId=${LOCATION}`
-      ).then((res)=>res.json()).then((data)=>{
-        const locationData = data.records.location[0];
-        const weatherEle = locationData.weatherElement.reduce((prev,curr)=>{
-          console.log('pre',prev,curr)
-          if (['WDSD', 'TEMP'].includes(curr.elementName)) {
-            prev[curr.elementName] = curr.elementValue;
-          }
-          return prev;
-        },{})
-        console.log('data', weatherEle);
-        setCurrentWeather({
-            ...currentWeather,
-            locationName: locationData.locationName,
-            description: '多雲',
-            windSpeed: weatherEle.WDSD,
-            temperature: weatherEle.TEMP,
-            rainPossibility: 60,
-            observationTime: locationData.time.obsTime,
+    const {
+        locationName,
+        description,
+        windSpeed,
+        temperature,
+        rainPossibility,
+        observationTime,
+        isLoading,
+        comfortability,
+        weatherCode,
+    } = weatherData;
+    const moment = useMemo(() => getMoment(LOCATION_FORECAST_NAME), []);
+    const fetchAllData = useCallback(async () => {
+        setWeatherData((prev) => {
+            return {
+                ...prev,
+                isLoading: true,
+            };
         });
-      })
-    }
+        const [currentData, forecastData ] = await Promise.all([
+            fetchCurrentWeatherData(),
+            fetchForecastWeatherDate(),
+        ]);
+                console.log(
+                    '🚀 ~ file: App.js ~ line 231 ~ fetchAllData ~ currentData',
+                    currentData,
+                    forecastData
+                );
+
+        setWeatherData((prev) => {
+            return {
+                ...currentData,
+                ...forecastData,
+                isLoading: false,
+            };
+        });
+    }, []);
+    useEffect(() => {
+        fetchAllData();
+    }, [fetchAllData]);
+        useEffect(() => {
+            setCurrentTheme(moment==='day'?'light':'dark');
+        }, [moment]);
     return (
         <ThemeProvider theme={theme[currentTheme]}>
             <Container>
                 <WeatherCard>
-                    <Location theme="dark">
-                        {currentWeather.locationName}
-                    </Location>
-                    <Description>{currentWeather.description}</Description>
+                    <Location theme="dark">{locationName}</Location>
+                    <Description>
+                        {description}
+                        {comfortability}
+                    </Description>
                     <CurrentWeather>
                         <Temperature>
-                            {Math.round(currentWeather.temperature)}
+                            {Math.round(temperature)}
                             <Celsius>°C</Celsius>
                         </Temperature>
-                        <DayCloudy />
+                        <WeatherIcon
+                            moment={moment}
+                            weatherCode={weatherCode}
+                        />
                     </CurrentWeather>
                     <AirFlow>
-                        <AirFlowIcon /> {currentWeather.windSpeed} m/h
+                        <AirFlowIcon /> {windSpeed} m/h
                     </AirFlow>
                     <Rain>
-                        <RainIcon /> {currentWeather.rainPossibility}%
+                        <RainIcon /> {rainPossibility}%
                     </Rain>
-                    <Refresh onClick={handleClick}>
+                    <Refresh
+                        onClick={() => {
+                            fetchAllData();
+                        }}
+                        isLoading={isLoading}
+                    >
                         {new Intl.DateTimeFormat('zh-TW', {
                             hour: 'numeric',
                             minute: 'numeric',
-                        }).format(dayjs(currentWeather.observationTime))}
-                        <RefreshIcon />
+                        }).format(dayjs(observationTime))}
+                        {isLoading ? <LoadingIcon /> : <RefreshIcon />}
                     </Refresh>
                 </WeatherCard>
             </Container>
