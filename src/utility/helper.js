@@ -57,7 +57,7 @@ export const availableLocations = [
     },
     {
         cityName: '臺北市',
-        locationName: '大屯山',
+        locationName: '臺北',
         sunriseCityName: '臺北市',
     },
     {

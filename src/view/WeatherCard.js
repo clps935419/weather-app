@@ -7,6 +7,7 @@ import { ReactComponent as DayCloudyIcon } from '@/images/day-cloudy.svg';
 import WeatherIcon from '@/components/WeatherIcon';
 import dayjs from 'dayjs';
 import { ReactComponent as RainIcon } from '@/images/rain.svg';
+import { ReactComponent as CogIcon } from './../images/cog.svg';
 
 const WeatherCardWrapper = styled.div`
     position: relative;
@@ -73,7 +74,14 @@ const Rain = styled.div`
         margin-right: 30px;
     }
 `;
-
+const Cog = styled(CogIcon)`
+    position: absolute;
+    top: 30px;
+    right: 15px;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+`;
 const Refresh = styled.div`
     @keyframes rotate {
         from {
@@ -102,9 +110,8 @@ const Refresh = styled.div`
     }
 `;
 function WeatherCard(props){
-    const { weatherData, moment, onChange } = props;
+    const { weatherData,cityName, moment, onChange, onChangePage } = props;
     const {
-        locationName,
         description,
         windSpeed,
         temperature,
@@ -117,7 +124,8 @@ function WeatherCard(props){
     return (
         <>
             <WeatherCardWrapper>
-                <Location theme="dark">{locationName}</Location>
+                <Cog onClick={() => onChangePage('weatherSetting')} />
+                <Location>{cityName}</Location>
                 <Description>
                     {description}
                     {comfortability}
