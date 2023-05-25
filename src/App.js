@@ -34,7 +34,7 @@ const Container = styled.div`
     justify-content: center;
 `;
 
-const AUTHORIZATION_KEY = `CWB-BFADAE5F-15DA-4E82-90EC-2B2AEB824B1A`;
+const AUTHORIZATION_KEY = `CWB-44F16CDF-B27E-4C26-8F4D-AF35E7A8F998`;
 const LOCATION = '466920';
 const LOCATION_FORECAST_NAME = '臺北市';
 
